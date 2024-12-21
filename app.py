@@ -1,10 +1,10 @@
 class Config:
     secret      = None          # str | None    - default: None
-    debug       = True         # bool          - default: True
-    min_width   = 24            # int           - default: 24
-    min_height  = 24            # int           - default: 24
-    max_width   = 576           # int           - default: 576
-    max_height  = 576           # int           - default: 576
+    debug       = False         # bool          - default: False
+    min_width   = 100            # int           - default: 24
+    min_height  = 100            # int           - default: 24
+    max_width   = 400           # int           - default: 576
+    max_height  = 400           # int           - default: 576
     
 
 # Start
@@ -14,8 +14,9 @@ from PIL import Image
 from io import BytesIO
 import requests
 import uvicorn
+import math
 
-app = FastAPI(docs_url="/",title="ImageToJson",description="Me: https://fbi.bio/oopss_sorry",openapi_url="/openapi",redoc_url="/redoc",swagger_ui_oauth2_redirect_url="/oauth2",version="beta:gay:1")
+app = FastAPI(docs_url="/",title="ImageToJson",description="Me: https://fbi.bio/oopss_sorry",openapi_url="/openapi",redoc_url="/redoc",swagger_ui_oauth2_redirect_url="/oauth2",version="beta:gay:2")
 
 def verify_secret(secret: str = None):
     if Config.secret==None or secret == Config.secret:
@@ -29,9 +30,9 @@ async def status():
 @app.get("/process-image")
 async def process_image(
     source: str = Query(..., description="URL of the image to process", max_length=128),
-    width: int = Query(..., description="Desired width of the image",ge=Config.min_width or 24, le=Config.max_width or 576),
-    height: int = Query(..., description="Desired height of the image",ge=Config.min_height or 24, le=Config.max_height or 576),
-    secret: str = None
+    width: int = Query(None, description="Desired width of the image",ge=Config.min_width or 8, le=Config.max_width or 800),
+    height: int = Query(None, description="Desired height of the image",ge=Config.min_height or 8, le=Config.max_height or 800),
+    secret: str = Query(None, description="Secret key"),
 ):
     # Check secret
     if not verify_secret(secret=secret):
@@ -41,6 +42,16 @@ async def process_image(
         response = requests.get(source)
         response.raise_for_status()
         image = Image.open(BytesIO(response.content))
+
+        if (width==None and height != None) or (width!=None and height == None):
+            return HTTPException(status_code=415, detail="Invalid params")
+        else:
+            width, height = image.size
+            gcd = math.gcd(width, height)
+            width = (width // gcd)*(Config.max_width/gcd)
+            height = (height // gcd)*width,height*(Config.max_width/gcd)
+
+
 
         # Resize the image
         image_resized = image.resize([width, height])
