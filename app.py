@@ -30,8 +30,8 @@ async def status():
 @app.get("/process-image")
 async def process_image(
     source: str = Query(..., description="URL of the image to process", max_length=128),
-    width: int = Query(None, description="Desired width of the image",ge=Config.min_width or 8, le=Config.max_width or 800),
-    height: int = Query(None, description="Desired height of the image",ge=Config.min_height or 8, le=Config.max_height or 800),
+    width: int = Query(..., description="Desired width of the image",ge=Config.min_width or 8, le=Config.max_width or 800),
+    height: int = Query(..., description="Desired height of the image",ge=Config.min_height or 8, le=Config.max_height or 800),
     secret: str = Query(None, description="Secret key"),
 ):
     # Check secret
@@ -43,6 +43,8 @@ async def process_image(
         response.raise_for_status()
         image = Image.open(BytesIO(response.content))
 
+        """
+        SOON:
         if (width==None and height != None) or (width!=None and height == None):
             return HTTPException(status_code=415, detail="Invalid params")
         else:
@@ -50,7 +52,7 @@ async def process_image(
             gcd = math.gcd(width, height)
             width = (width // gcd)*(Config.max_width/gcd)
             height = (height // gcd)*width,height*(Config.max_width/gcd)
-
+        """
 
 
         # Resize the image
