@@ -1,6 +1,6 @@
 class Config:
     secret      = None          # str | None    - default: None
-    debug       = False         # bool          - default: False
+    debug       = True         # bool          - default: True
     min_width   = 24            # int           - default: 24
     min_height  = 24            # int           - default: 24
     max_width   = 576           # int           - default: 576
