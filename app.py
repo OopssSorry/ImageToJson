@@ -8,7 +8,7 @@ class Config:
     
 
 # Start
-from fastapi import FastAPI, HTTPException, Query
+from fastapi import FastAPI, HTTPException, UploadFile, File, Query
 from fastapi.responses import JSONResponse, PlainTextResponse
 from PIL import Image
 from io import BytesIO
@@ -23,12 +23,32 @@ def verify_secret(secret: str = None):
         return True
     return False
 
+def process_image(image, width, height):
+    # Resize the image
+    image_resized = image.resize([width, height])
+
+    # Prepare the output data structure
+    image_data = {}
+    for y in range(image_resized.height):
+        row_data = {}
+        for x in range(image_resized.width):
+            pixel = image_resized.getpixel([x, y])
+            rgb = None
+            if isinstance(pixel, int):
+                rgb = (pixel, pixel, pixel)
+            else:
+                rgb = pixel
+            hex_color = "{:02x}{:02x}{:02x}".format(rgb[0], rgb[1], rgb[2])
+            row_data[x] = str(hex_color)
+        image_data[height-y] = row_data
+
+
 @app.get("/status")
 async def status():
     return PlainTextResponse("success")
 
-@app.get("/process-image")
-async def process_image(
+@app.get("/process-url")
+async def process_url(
     source: str = Query(..., description="URL of the image to process", max_length=128),
     width: int = Query(..., description="Desired width of the image",ge=Config.min_width or 8, le=Config.max_width or 800),
     height: int = Query(..., description="Desired height of the image",ge=Config.min_height or 8, le=Config.max_height or 800),
@@ -41,43 +61,35 @@ async def process_image(
         # Fetch the image from the URL
         response = requests.get(source)
         response.raise_for_status()
+        
+        # Open image from url
         image = Image.open(BytesIO(response.content))
-
-        """
-        SOON:
-        if (width==None and height != None) or (width!=None and height == None):
-            return HTTPException(status_code=415, detail="Invalid params")
-        else:
-            width, height = image.size
-            gcd = math.gcd(width, height)
-            width = (width // gcd)*(Config.max_width/gcd)
-            height = (height // gcd)*width,height*(Config.max_width/gcd)
-        """
-
-
-        # Resize the image
-        image_resized = image.resize([width, height])
-
-        # Prepare the output data structure
-        image_data = {}
-        for y in range(image_resized.height):
-            row_data = {}
-            for x in range(image_resized.width):
-                pixel = image_resized.getpixel([x, y])
-                rgb = None
-                if isinstance(pixel, int):
-                    rgb = (pixel, pixel, pixel)
-                else:
-                    rgb = pixel
-
-                hex_color = "{:02x}{:02x}{:02x}".format(rgb[0], rgb[1], rgb[2])
-                row_data[x] = str(hex_color)
-            image_data[height-y] = row_data
-
-        return JSONResponse(image_data)
+        image_data = process_image(image)
+        
+        return JSONResponse(image_data,status_code=200)
     except requests.exceptions.RequestException as e:
         print(f"Error fetching image: {e}")
         return HTTPException(status_code=400, detail="Error fetching image")
+    except Exception as e:
+        print(f"Error fetching image: {e}")
+        return HTTPException(status_code=500, detail="Error processing image")
+
+@app.get("/process-file")
+async def process_file(
+    file: UploadFile = File(...),
+    width: int = Query(..., description="Desired width of the image",ge=Config.min_width or 8, le=Config.max_width or 800),
+    height: int = Query(..., description="Desired height of the image",ge=Config.min_height or 8, le=Config.max_height or 800),
+    secret: str = Query(None, description="Secret key"),
+):
+    # Check secret
+    if not verify_secret(secret=secret):
+        return HTTPException(status_code=401, detail="Unauthorized access")
+    try:
+        # Open the uploaded image
+        image = Image.open(file.file)
+        image_data = process_image(image)
+        
+        return JSONResponse(image_data,status_code=200)
     except Exception as e:
         print(f"Error fetching image: {e}")
         return HTTPException(status_code=500, detail="Error processing image")
