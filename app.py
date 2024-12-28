@@ -1,10 +1,10 @@
 class Config:
     secret      = None          # str | None    - default: None
     debug       = False         # bool          - default: False
-    min_width   = 100            # int           - default: 24
-    min_height  = 100            # int           - default: 24
-    max_width   = 400           # int           - default: 576
-    max_height  = 400           # int           - default: 576
+    min_width   = 8            # int           - default: 8
+    min_height  = 8            # int           - default: 8
+    max_width   = 400           # int           - default: 800
+    max_height  = 400           # int           - default: 800
     
 
 # Start
@@ -76,7 +76,7 @@ async def process_url(
 
 @app.get("/process-file")
 async def process_file(
-    file: UploadFile = File(...),
+    file: UploadFile = File(None),
     width: int = Query(..., description="Desired width of the image",ge=Config.min_width or 8, le=Config.max_width or 800),
     height: int = Query(..., description="Desired height of the image",ge=Config.min_height or 8, le=Config.max_height or 800),
     secret: str = Query(None, description="Secret key"),
